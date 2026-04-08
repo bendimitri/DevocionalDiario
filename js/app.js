@@ -12,7 +12,62 @@ const STORAGE_KEYS = {
   PROGRESS: "devocional_diario_progress_v1",
   SETTINGS: "devocional_diario_settings_v1",
   DAILY_VERSE: "devocional_diario_daily_verse_v1",
+  THEME: "devocional_diario_theme_v1",
 };
+
+// ========== Gerenciamento de Tema ==========
+function initTheme() {
+  const savedTheme = loadFromStorage(STORAGE_KEYS.THEME, "dark");
+  applyTheme(savedTheme);
+}
+
+function applyTheme(theme) {
+  if (theme === "light") {
+    document.body.classList.add("theme-light");
+  } else {
+    document.body.classList.remove("theme-light");
+  }
+  saveToStorage(STORAGE_KEYS.THEME, theme);
+}
+
+function toggleTheme() {
+  const currentTheme = document.body.classList.contains("theme-light") ? "light" : "dark";
+  const newTheme = currentTheme === "light" ? "dark" : "light";
+  applyTheme(newTheme);
+}
+
+function getThemeIcon() {
+  return document.body.classList.contains("theme-light") ? "🌙" : "☀️";
+}
+
+// ========== Botão Flutuante ==========
+function createScrollToTopButton() {
+  let btn = document.getElementById("btn-scroll-to-top");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "btn-scroll-to-top";
+    btn.type = "button";
+    btn.setAttribute("aria-label", "Voltar ao topo");
+    btn.innerHTML = "↑";
+    document.body.appendChild(btn);
+    
+    btn.addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+  return btn;
+}
+
+function initScrollToTopButton() {
+  const btn = createScrollToTopButton();
+  window.addEventListener("scroll", () => {
+    if (window.scrollY > 300) {
+      btn.classList.add("visible");
+    } else {
+      btn.classList.remove("visible");
+    }
+  });
+}
 
 const NAV_LINKS = [
   { id: "home", href: "./livros.html", icon: "🏠", label: "Início" },
@@ -114,13 +169,20 @@ function recomputeStats() {
 }
 
 function sidebarNavHtml(activeId) {
-  return NAV_LINKS.map(
+  const toggleBtn = `<button type="button" class="theme-toggle" id="theme-toggle-btn" aria-label="Alternar tema">
+    <span class="theme-toggle-icon">${getThemeIcon()}</span>
+    <span>${document.body.classList.contains("theme-light") ? "Escuro" : "Claro"}</span>
+  </button>`;
+  
+  const links = NAV_LINKS.map(
     (item) => `
     <a class="sidebar-link ${item.id === activeId ? "sidebar-link-active" : ""}" href="${item.href}">
       <span class="sidebar-link-icon" aria-hidden="true">${item.icon}</span>
       <span>${escapeHtml(item.label)}</span>
     </a>`
   ).join("");
+  
+  return `${links}<div style="margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(148, 163, 184, 0.25); margin-top: 12px;">${toggleBtn}</div>`;
 }
 
 /**
@@ -176,6 +238,15 @@ function mountShell(opts) {
   backdrop?.addEventListener("click", () => setNavOpen(false));
   document.querySelectorAll(".sidebar-nav a.sidebar-link").forEach((a) => {
     a.addEventListener("click", () => setNavOpen(false));
+  });
+
+  // Listener para toggle de tema
+  const themeToggleBtn = document.getElementById("theme-toggle-btn");
+  themeToggleBtn?.addEventListener("click", () => {
+    toggleTheme();
+    // Atualizar o botão após mudar o tema
+    themeToggleBtn.innerHTML = `<span class="theme-toggle-icon">${getThemeIcon()}</span>
+    <span>${document.body.classList.contains("theme-light") ? "Escuro" : "Claro"}</span>`;
   });
 
   return document.getElementById("main-slot");
@@ -520,6 +591,20 @@ function renderCapituloPage() {
     verse.append(num, p);
     readerContent.appendChild(verse);
   });
+
+  // Adicionar botões de navegação no rodapé
+  const navFooterDiv = document.createElement("div");
+  navFooterDiv.className = "reader-nav-footer";
+  
+  const prevFooterHtml = prevCap
+    ? `<a class="btn btn-ghost" href="${chapterReaderUrl(book.id, prevCap)}">← Capítulo ${prevCap}</a>`
+    : `<span class="btn btn-ghost is-disabled" aria-disabled="true">← Anterior</span>`;
+  const nextFooterHtml = nextCap
+    ? `<a class="btn btn-ghost" href="${chapterReaderUrl(book.id, nextCap)}">Capítulo ${nextCap} →</a>`
+    : `<span class="btn btn-ghost is-disabled" aria-disabled="true">Próximo →</span>`;
+  
+  navFooterDiv.innerHTML = prevFooterHtml + nextFooterHtml;
+  readerContent.appendChild(navFooterDiv);
 }
 
 function renderDailyVersePage() {
@@ -790,3 +875,7 @@ async function loadBible() {
 }
 
 loadBible();
+
+// Inicializar tema e botão flutuante
+initTheme();
+initScrollToTopButton();
