@@ -1,14 +1,12 @@
 const APP_NAME = "Bíblia Livre";
 
-const VALID_USER = {
-  username: "devocional",
-  password: "biblia",
-};
+
 
 const BIBLE_URL = "./data/biblialivre.json";
 
 const STORAGE_KEYS = {
   AUTH: "devocional_diario_auth_v1",
+  USERS: "devocional_diario_users_v1",
   PROGRESS: "devocional_diario_progress_v1",
   SETTINGS: "devocional_diario_settings_v1",
   DAILY_VERSE: "devocional_diario_daily_verse_v1",
@@ -19,6 +17,7 @@ const NAV_LINKS = [
   { id: "plans", href: "./meusplanos.html", icon: "📋", label: "Meus Planos" },
   { id: "goal", href: "./meta-diaria.html", icon: "🎯", label: "Meta Diária" },
   { id: "verse", href: "./versiculo-diario.html", icon: "✝", label: "Versículo do Dia" },
+  { id: "rate", href: "#", icon: "⭐", label: "Avalie-nos" },
 ];
 
 const CURRENT_PAGE = document.body.dataset.page || "index";
@@ -60,7 +59,7 @@ function saveToStorage(key, value) {
 
 function isAuthenticated() {
   const auth = loadFromStorage(STORAGE_KEYS.AUTH, null);
-  return !!auth && auth.username === VALID_USER.username;
+  return !!auth && !!auth.username;
 }
 
 function setAuthenticated(username) {
@@ -116,7 +115,7 @@ function recomputeStats() {
 function sidebarNavHtml(activeId) {
   return NAV_LINKS.map(
     (item) => `
-    <a class="sidebar-link ${item.id === activeId ? "sidebar-link-active" : ""}" href="${item.href}">
+    <a class="sidebar-link ${item.id === activeId ? "sidebar-link-active" : ""}" href="${item.href}" ${item.id === "rate" ? 'id="rate-link"' : ""}>
       <span class="sidebar-link-icon" aria-hidden="true">${item.icon}</span>
       <span>${escapeHtml(item.label)}</span>
     </a>`
@@ -160,6 +159,15 @@ function mountShell(opts) {
   `;
 
   document.getElementById("btn-logout").addEventListener("click", logout);
+
+  const rateLink = document.getElementById("rate-link");
+  if (rateLink) {
+    rateLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      localStorage.removeItem(STORAGE_KEYS.AUTH);
+      window.location.href = "https://docs.google.com/forms/d/e/1FAIpQLSfkuaNz1sgie4-cGxExQ8PcyCrCyG38c4gkAvrTZZEEy2A7-w/viewform?usp=header";
+    });
+  }
 
   const toggle = document.getElementById("nav-toggle");
   const backdrop = document.getElementById("sidebar-backdrop");
@@ -219,14 +227,16 @@ function renderLoginPage() {
       <form id="login-form" class="form">
         <label class="form-label">
           Usuário
-          <input name="username" type="text" autocomplete="username" placeholder="devocional" required />
+          <input name="username" type="text" autocomplete="username" placeholder="Seu usuário" required />
         </label>
         <label class="form-label">
           Senha
           <input name="password" type="password" autocomplete="current-password" placeholder="••••••" required />
-          <span class="hint">Credenciais de demonstração: <strong>devocional</strong> / <strong>biblia</strong></span>
         </label>
-        <button type="submit" class="btn btn-primary">Entrar</button>
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" name="action" value="login" class="btn btn-primary" style="flex: 1;">Entrar</button>
+            <button type="submit" name="action" value="register" class="btn btn-ghost" style="flex: 1;">Criar Conta</button>
+        </div>
       </form>
     </div>
   `;
@@ -239,12 +249,26 @@ function renderLoginPage() {
     const fd = new FormData(form);
     const username = fd.get("username").toString().trim();
     const password = fd.get("password").toString();
+    const action = e.submitter.value;
 
-    if (username === VALID_USER.username && password === VALID_USER.password) {
-      setAuthenticated(username);
-      window.location.href = "./livros.html";
-    } else {
-      alert("Usuário ou senha inválidos.");
+    const users = loadFromStorage(STORAGE_KEYS.USERS, {});
+
+    if (action === "register") {
+      if (users[username]) {
+        alert("Usuário já existe. Tente fazer login.");
+      } else {
+        users[username] = { password };
+        saveToStorage(STORAGE_KEYS.USERS, users);
+        alert("Conta criada com sucesso! Por favor, faça login com a nova conta.");
+        form.reset();
+      }
+    } else if (action === "login") {
+      if (users[username] && users[username].password === password) {
+        setAuthenticated(username);
+        window.location.href = "./livros.html";
+      } else {
+        alert("Usuário ou senha inválidos.");
+      }
     }
   });
 }
